@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "danlab"
+version = "1.0.0"
+authors = [
+  { name="Clint Chelak", email="cachelak@gmail.com" },
+]
+description = "Tools for ecologocial and geographic analyses"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: MIT License",
+]

@@ -35,6 +35,7 @@ def gather_station_search_results(province: str,
     list of BeautifulSoup frames
         contains each page in the search for station IDs
     """
+    province = province.upper()
     end_date = end_date if end_date is not None else datetime.now()
 
     if not isinstance(end_date, datetime):
@@ -52,8 +53,8 @@ def gather_station_search_results(province: str,
         print(f'Downloading rows {start_row} to {start_row + row_per_page}...')
         query_start_row = f"startRow={start_row}"
 
-        response = requests.get(base_url + query_province + query_year + query_start_row) # Using requests to read the HTML source
-
+        # Using requests to read the HTML source
+        response = requests.get(base_url + query_province + query_year + query_start_row, timeout=100)
         soup = BeautifulSoup(response.text, 'html.parser') # Parse with Beautiful Soup
         soup_frames.append(soup)
 
@@ -77,13 +78,15 @@ def scrape_station_ids(province:str, start_year: str, max_pages: int, end_date: 
     -------
     pd.DataFrame
         The data frame containing all the station ID information
-        
-    """
-    province = province.capitalize()
-    station_data = []
-    soup_frames = gather_station_search_results(province, start_year, max_pages, end_date)
 
-    for soup in soup_frames: # For each soup
+    """
+    station_data = []
+    soup_frames = gather_station_search_results(province=province,
+                                                start_year=start_year,
+                                                max_pages=max_pages,
+                                                end_date=end_date)
+
+    for soup in soup_frames:
         # Find forms of stnRequest## (e.g. 'stnRequest12') but exclude forms of name stnRequest##-sm
         forms = soup.find_all("form", {"id" : re.compile(r'stnRequest\d+$')})
         for form in forms:
@@ -108,8 +111,6 @@ def scrape_station_ids(province:str, start_year: str, max_pages: int, end_date: 
                 station_data.append(data)
             except IndexError as ex:
                 print(ex)
-            except:
-                pass
 
-    # Create a pandas dataframe using the collected data and give it the appropriate column names
+# Create a pandas dataframe using the collected data and give it the appropriate column names
     return pd.DataFrame(station_data, columns=['StationID', 'Name', 'Intervals', 'Year Start', 'Year End'])

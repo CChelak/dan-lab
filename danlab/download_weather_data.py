@@ -12,7 +12,7 @@ from urllib.error import URLError
 from dateutil.rrule import rrule, MONTHLY
 import pandas as pd
 
-def download_hourly_weather_data(stationID: int, date: datetime) -> pd.DataFrame:
+def download_hourly_weather(stationID: int, date: datetime) -> pd.DataFrame:
     """Download hourly weather data from weather.gc.ca
 
     Parameters
@@ -95,7 +95,7 @@ def download_hourly_weather_in_date_range(station_id: int,
 
     frames = []
     for dt in rrule(MONTHLY, dtstart=start_date, until=end_date):
-        df = download_hourly_weather_data(station_id, dt)
+        df = download_hourly_weather(station_id, dt)
         frames.append(df)
 
     weather_data = pd.concat(frames, ignore_index=True)
