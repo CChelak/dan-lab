@@ -19,3 +19,7 @@ from danlab.climate_station_info import (
 from danlab.hourly_data import (
     request_hourly_data,
 )
+
+from danlab.daily_data import (
+    request_daily_data,
+)
