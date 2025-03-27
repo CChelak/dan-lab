@@ -125,5 +125,6 @@ def request_hourly_data(station_id: int | Iterable[int],
 
     if response_format == 'csv' and len(all_hourly_data) > 0:
         all_hourly_data = pd.concat(all_hourly_data, ignore_index=True)
+        # TODO: Find what columns are lost with this reindex
         return all_hourly_data.reindex(columns=properties)
     return all_hourly_data

@@ -42,4 +42,5 @@ WEATHER_STN_PROPERTIES = [
 ]
 
 if __name__ == "__main__":
-    st_df =  request_climate_station_info(properties=WEATHER_STN_PROPERTIES)
+    st_df =  request_climate_station_info(properties=WEATHER_STN_PROPERTIES,
+                                          PROV_STATE_TERR_CODE='AB')
