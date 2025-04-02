@@ -1,7 +1,8 @@
-"""Tools for acquiring daily climate data from API 
+"""Tools for acquiring hourly climate data from API 
 """
 from datetime import datetime
 import io
+from logging import getLogger
 from typing import List # for type hints
 from collections.abc import Iterable  # for type hints
 
@@ -11,44 +12,19 @@ import requests
 from tqdm import tqdm  # for adding a progr`ess bar
 
 from danlab.date_conversions import parse_date_time
+from danlab.api.query_match import find_number_matched
+from danlab.data_clean import reorder_columns_to_match_properties
 
-def find_number_matched(url: str, params: dict) -> int:
-    """Get number of entries that match the request stated
+logger = getLogger(__name__)
 
-    Parameters
-    ----------
-    url : str
-        A URL to which to make the API GET request
-    params : dict
-        The parameters to pass with the GET request
-
-    Returns
-    -------
-    int
-        Number of matches of the GET request
-    """
-    alt_params = params.copy()
-    alt_params['f'] = 'json'
-    alt_params['items'] = 1
-
-    response = requests.get(url,
-                            params=alt_params,
-                            timeout=100)
-    if response.status_code != 200:
-        print("An error occurred when querying number of entries:", response.status_code, response.text)
-        return 0
-
-    return response.json()['numberMatched']
-
-
-def request_daily_data(station_id: int | Iterable[int],
+def request_hourly_data(station_id: int | Iterable[int],
                         properties: Iterable,
                         date_interval: datetime | Iterable[datetime] | str = None,
                         response_format: str = 'csv',
                         **extra_params) -> pd.DataFrame | List[dict]:
-    """Request daily data from API
+    """Request hourly data from API
 
-    Calls a GET reqest call to climate-daily/items and processes the response
+    Calls a GET reqest call to climate-hourly/items and processes the response
 
     Parameters
     ----------
@@ -57,7 +33,7 @@ def request_daily_data(station_id: int | Iterable[int],
     properties : Iterable
         A list of climate-station properties to gather from the API.
         Allowed properties correspond to the columns found in the link:
-        https://api.weather.gc.ca/collections/climate-daily/items?lang=en
+        https://api.weather.gc.ca/collections/climate-hourly/items?lang=en
     date_interval : datetime | Iterable[datetime] | str
         If a single date given, return hourly weather data for that date
 
@@ -73,12 +49,12 @@ def request_daily_data(station_id: int | Iterable[int],
         'csv'
     extra_params :
         Extra parameters that can be accepted by API, defined in the "items"
-        section in: https://api.weather.gc.ca/openapi?f=html#/climate-daily
+        section in: https://api.weather.gc.ca/openapi?f=html#/climate-hourly
 
     Returns
     -------
     pd.DataFrame | dict
-        A data frame of the requested daily data, with properties requested as
+        A data frame of the requested hourly data, with properties requested as
         columns
 
         If request was to be made in json format, a list of dictionaries will be
@@ -86,7 +62,7 @@ def request_daily_data(station_id: int | Iterable[int],
         response
     """
     limit = 10000
-    request_url = "https://api.weather.gc.ca/collections/climate-daily/items"
+    request_url = "https://api.weather.gc.ca/collections/climate-hourly/items"
 
     request_params = {'limit': limit,
                       'offset': 0,
@@ -100,31 +76,34 @@ def request_daily_data(station_id: int | Iterable[int],
 
     n_matched = find_number_matched(request_url, request_params)
 
-    all_daily_data = []
+    all_hourly_data = []
     n_iter = np.int64(np.ceil(n_matched / limit))
-    with tqdm(total=n_iter, desc=f"Getting daily data for Station {station_id}") as pbar:
+    with tqdm(total=n_iter, desc=f"Getting hourly data for Station {station_id}") as pbar:
         for _ in range(n_iter):
             response = requests.get(request_url,
                                     params=request_params,
                                     timeout=100)
 
             if response.status_code != 200:
-                print("Got invalid response:", response.status_code, response.text)
+                logger.error("Got invalid response at offset %s: [%s]\n%s",
+                             request_params['offset'],
+                             response.status_code,
+                             response.text
+                             )
                 break
 
             pbar.update(1)
 
             if response_format == 'csv':
-                daily_data = pd.read_csv(io.StringIO(response.text))
+                hourly_data = pd.read_csv(io.StringIO(response.text))
             else:
-                daily_data = response.json()
+                hourly_data = response.json()
 
-            all_daily_data.append(daily_data)
+            all_hourly_data.append(hourly_data)
 
             request_params['offset'] += limit
 
-    if response_format == 'csv' and len(all_daily_data) > 0:
-        all_daily_data = pd.concat(all_daily_data, ignore_index=True)
-        # TODO: Find what columns are lost with this reindex
-        return all_daily_data.reindex(columns=properties)
-    return all_daily_data
+    if response_format == 'csv' and len(all_hourly_data) > 0:
+        all_hourly_data = pd.concat(all_hourly_data, ignore_index=True)
+        return reorder_columns_to_match_properties(df=all_hourly_data, properties=properties)
+    return all_hourly_data
