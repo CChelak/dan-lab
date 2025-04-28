@@ -68,4 +68,3 @@ print("Since there are so few stations, I can list them:\n",
       f"{hourly_early[['STATION_NAME','FIRST_DATE']].to_string(index=False)}")
 
 # Q: What are the nearest stations to the Protected Areas?
-

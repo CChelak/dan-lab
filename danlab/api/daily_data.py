@@ -3,12 +3,12 @@
 from datetime import datetime
 import io
 from logging import getLogger
+import math
 from pathlib import Path
 from typing import List # for type hints
 from collections.abc import Iterable  # for type hints
 import time
 
-import numpy as np
 import pandas as pd
 import requests
 from tqdm import tqdm  # for adding a progr`ess bar
@@ -20,12 +20,47 @@ from danlab.data_clean import reorder_columns_to_match_properties
 
 logger = getLogger(__name__)
 
+def request_data_frame(url: str, params: dict) -> pd.DataFrame | None:
+    """Perform a request to the API and handle errors
+
+    Parameters
+    ----------
+    url : str
+        The url with which to perform the request
+    params : dict
+        The parameters to pass to the API GET request
+
+    Returns
+    -------
+    pd.DataFrame | None
+        The data frame representing the CSV gotten from request, None on failure
+    """
+    offset = params['offset'] if 'offset' in params else 0
+    response = None
+
+    try:
+        response = requests.get(url,
+                            params=params,
+                            timeout=100)
+    except requests.ReadTimeout as e:
+        logger.error("Read Timeout with error: %s\nError occurred at offset %s}", e, offset)
+        return None
+
+    if response.status_code != 200:
+        logger.error("Got invalid response at offset %s: [%s]\n%s",
+                     offset,
+                     response.status_code,
+                     response.text
+                     )
+        return None
+
+    return pd.read_csv(io.StringIO(response.text))
+
 
 def request_daily_data(station_id: int | Iterable[int],
-                        properties: Iterable,
-                        date_interval: datetime | Iterable[datetime] | str = None,
-                        response_format: str = 'csv',
-                        **extra_params) -> pd.DataFrame | List[dict]:
+                       properties: Iterable,
+                       date_interval: datetime | Iterable[datetime] | str = None,
+                       **extra_params) -> pd.DataFrame | List[dict]:
     """Request daily data from API
 
     Calls a GET reqest call to climate-daily/items and processes the response
@@ -48,9 +83,6 @@ def request_daily_data(station_id: int | Iterable[int],
         means "from date given to now."
 
         If None given, date is not considered in the request
-    response_format : str
-        Which format you want the response to return as: supports 'json' or
-        'csv'
     extra_params :
         Extra parameters that can be accepted by API, defined in the "items"
         section in: https://api.weather.gc.ca/openapi?f=html#/climate-daily
@@ -76,7 +108,7 @@ def request_daily_data(station_id: int | Iterable[int],
                       'offset': 0,
                       'properties': ','.join(properties),
                       'STN_ID': station_id,
-                      'f': response_format,
+                      'f': 'csv',
                       **extra_params}
 
     if date_interval is not None:
@@ -85,43 +117,58 @@ def request_daily_data(station_id: int | Iterable[int],
     n_matched = find_number_matched(request_url, request_params)
 
     all_daily_data = []
-    n_iter = np.int64(np.ceil(n_matched / limit))
+    n_iter = math.ceil(n_matched / limit)
     with tqdm(total=n_iter, desc=f"Getting daily data for Station {station_id}") as pbar:
-        for _ in range(n_iter):
-            try:
-                response = requests.get(request_url,
-                                    params=request_params,
-                                    timeout=100)
-            except requests.ReadTimeout as e:
-                logger.error("Read Timeout with error: %s\nError occurred at offset %s}", e,request_params['offset'])
-                raise
+        successful_iter = 0
+        while successful_iter < n_iter:
+            daily_data = request_data_frame(request_url, request_params)
 
-            if response.status_code != 200:
-                logger.error("Got invalid response at offset %s: [%s]\n%s",
-                             request_params['offset'],
-                             response.status_code,
-                             response.text
-                             )
-                break
+            if daily_data is None:
+                time.sleep(60)
+                continue
 
             pbar.update(1)
 
-            if response_format == 'csv':
-                daily_data = pd.read_csv(io.StringIO(response.text))
-            else:
-                daily_data = response.json()
-
-            all_daily_data = pd.concat([all_daily_data, daily_data])
+            all_daily_data.append(daily_data)
 
             request_params['offset'] += limit
+            successful_iter += 1
 
-    if response_format == 'csv' and len(all_daily_data) > 0:
+        if not all_daily_data:
+            return pd.DataFrame()
+
         all_daily_data = pd.concat(all_daily_data, ignore_index=True)
 
         # first add columns not present in specified properties
         return reorder_columns_to_match_properties(df=all_daily_data, properties=properties)
 
     return all_daily_data
+
+def write_full_set_to_csv(daily_data: pd.DataFrame, out_dir: Path):
+    """Write data to CSV file, if data has fully been captured
+
+    This assumes that data is read from API sorted by of CLIMATE_IDENTIFIER.
+    Therefore, if two IDs are present, then the first has been fully read.
+
+    Files are written with the name of the following format:
+    <station name>_<climate ID>.csv
+
+    Parameters
+    ----------
+    daily_data : pd.DataFrame
+        The daily data to write to file, if ready
+    out_dir : Path
+        The directory with which to write to file
+    """
+    # Wrtie entries for a given ID to file if we received all its data, then drop from DataFrmae
+    curr_ids = daily_data['CLIMATE_IDENTIFIER'].unique()
+    for next_id in curr_ids[:-1]: # loop through all but the last ID
+        next_id_data = daily_data[daily_data['CLIMATE_IDENTIFIER'] == next_id]
+
+        file_name = Path(out_dir, f"{next_id_data['STATION_NAME'].iloc[0].replace(' ', '_')}_{next_id}.csv" )
+        next_id_data.to_csv(file_name, index=False)
+
+        daily_data = daily_data.drop(next_id_data.index)
 
 def write_all_daily_data_to_csv(properties: Iterable,
                                 date_interval: datetime | Iterable[datetime] | str = None,
@@ -149,7 +196,8 @@ def write_all_daily_data_to_csv(properties: Iterable,
     ValueError
         Properties are missing that are required to name the files
     """
-    limit = 1000
+    # pylint: disable=R0914
+    limit = 10000
     request_url = "https://api.weather.gc.ca/collections/climate-daily/items"
 
     if unq := check_unqueryable_properties(collection='climate-daily', properties=properties):
@@ -173,45 +221,22 @@ def write_all_daily_data_to_csv(properties: Iterable,
     all_daily_data = pd.DataFrame()
 
     n_matched = find_number_matched(request_url, request_params) + request_params['offset']
-    n_iter = np.int64(np.ceil(n_matched / limit))
+    n_iter = math.ceil(n_matched / limit)
     successful_iter = 0
     with tqdm(total=n_iter, desc="Getting all daily data") as pbar:
         while successful_iter < n_iter:
-            try:
-                response = requests.get(request_url,
-                                        params=request_params,
-                                        timeout=7200)
-            except requests.ReadTimeout as e:
-                logger.error("Read Timeout with error: %s\nError occurred at offset %s}", e,request_params['offset'])
-                raise
+            daily_data = request_data_frame(request_url, request_params)
 
-            print(response.request.path_url)
-            if response.status_code != 200:
-                logger.error("Got invalid response at offset %s: [%s] %s",
-                             request_params['offset'],
-                             response.status_code,
-                             response.text
-                             )
-                logger.error("Failed on request %s", response.request.path_url)
-                time.sleep(1800) # wait 30 minutes and try again
+            if daily_data is None:
+                time.sleep(60)
                 continue
-
-            pbar.update(1)
-
-            daily_data = pd.read_csv(io.StringIO(response.text))
 
             daily_data = reorder_columns_to_match_properties(df=daily_data, properties=properties)
             all_daily_data = pd.concat([all_daily_data, daily_data], ignore_index=True)
 
-            # Wrtie entries for a given ID to file if we received all its data, then drop from DataFrmae
-            curr_ids = all_daily_data['CLIMATE_IDENTIFIER'].unique()
-            for next_id in curr_ids[:-1]:
-                next_id_data = all_daily_data[all_daily_data['CLIMATE_IDENTIFIER'] == next_id]
+            write_full_set_to_csv(all_daily_data, out_dir=out_dir)
 
-                file_name = Path(out_dir, f"{next_id_data['STATION_NAME'].iloc[0].replace(' ', '_')}_{next_id}.csv" )
-                next_id_data.to_csv(file_name, index=False)
-
-                all_daily_data = all_daily_data.drop(next_id_data.index)
+            pbar.update(1)
 
             request_params['offset'] += limit
             successful_iter += 1
@@ -224,3 +249,4 @@ def write_all_daily_data_to_csv(properties: Iterable,
 
             file_name = Path(out_dir, f"{sub_df['STATION_NAME'].iloc[0].replace(' ', '_')}_{next_id}.csv")
             sub_df.to_csv(file_name, index=False)
+    # pylint: enable=R0914

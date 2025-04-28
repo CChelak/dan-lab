@@ -1,3 +1,14 @@
+"""File to set up ability to import functions and modules
+
+    Shortcuts below simplify imports. Rather than typing the following:
+    
+        from danlab.scrape.download_weather_data import download_hourly_weather
+
+    You can now type:
+
+        from danlab import download_hourly_weather
+"""
+
 from danlab.scrape.download_weather_data import (
     download_hourly_weather,
     download_hourly_weather_in_date_range,

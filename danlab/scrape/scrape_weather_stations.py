@@ -47,7 +47,9 @@ def gather_station_search_results(province: str,
 
     base_url = "http://climate.weather.gc.ca/historical_data/search_historic_data_stations_e.html?"
     query_province = f"searchType=stnProv&timeframe=1&lstProvince={province}&optLimit=yearRange&"
-    query_year = f"StartYear={start_year}&EndYear={end_date:%Y}&Year={end_date:%Y}&Month={end_date:%m}&Day={end_date:%d}&selRowPerPage={row_per_page}&txtCentralLatMin=0&txtCentralLatSec=0&txtCentralLongMin=0&txtCentralLongSec=0&"
+    query_year = (f"StartYear={start_year}&EndYear={end_date:%Y}"
+                  f"&Year={end_date:%Y}&Month={end_date:%m}&Day={end_date:%d}&selRowPerPage={row_per_page}"
+                  "&txtCentralLatMin=0&txtCentralLatSec=0&txtCentralLongMin=0&txtCentralLongSec=0&")
 
     for start_row in range(1, max_pages * row_per_page, row_per_page):
         print(f'Downloading rows {start_row} to {start_row + row_per_page}...')
@@ -80,6 +82,7 @@ def scrape_station_ids(province:str, start_year: str, max_pages: int, end_date: 
         The data frame containing all the station ID information
 
     """
+    # pylint: disable=R0914
     station_data = []
     soup_frames = gather_station_search_results(province=province,
                                                 start_year=start_year,
@@ -112,5 +115,6 @@ def scrape_station_ids(province:str, start_year: str, max_pages: int, end_date: 
             except IndexError as ex:
                 print(ex)
 
-# Create a pandas dataframe using the collected data and give it the appropriate column names
+    # Create a pandas dataframe using the collected data and give it the appropriate column names
     return pd.DataFrame(station_data, columns=['StationID', 'Name', 'Intervals', 'Year Start', 'Year End'])
+    # pylint: enable=R0914

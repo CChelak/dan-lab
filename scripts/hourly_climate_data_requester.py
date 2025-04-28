@@ -5,7 +5,6 @@ Interacts with https://api.weather.gc.ca/ to gather data
 
 from datetime import datetime
 
-import numpy as np
 import pandas as pd
 
 from danlab import request_hourly_data

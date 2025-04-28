@@ -48,7 +48,6 @@ def request_climate_station_info(properties: Iterable = None,
 
     request_params = {'limit': limit,
                       'properties': ','.join(properties),
-                      'PROV_STATE_TERR_CODE': 'AB',
                       'f': 'csv',
                       **extra_params
                       }
@@ -56,26 +55,34 @@ def request_climate_station_info(properties: Iterable = None,
     all_weather_stations = pd.DataFrame()
     n_matched = find_number_matched(request_url, request_params)
 
+    if n_matched <= 0:
+        logger.error("No entries for query of parameters")
+        return pd.DataFrame()
+
     n_iter = np.int64(np.ceil(n_matched / limit))
+    response = requests.Response()
     with tqdm(total=n_iter, desc="Getting station information") as pbar:
         for _ in range(n_iter):
             try:
                 response = requests.get(request_url,
                                         params=request_params,
                                         timeout=100)
+                if response.status_code != 200:
+                    logger.error("An error occurred when requesting station info: [%s] %s",
+                                response.status_code,
+                                response.text)
+                    return pd.DataFrame()
             except requests.ReadTimeout as e:
                 logger.error("Read Timeout with error: %s\nError occurred at offset %s}", e,request_params['offset'])
                 raise
 
-        if response.status_code != 200:
-            logger.error("An error occurred when requesting station info: [%s] %s",
-                        response.status_code,
-                        response.text)
-            return pd.DataFrame()
+            pbar.update(1)
 
-        pbar.update(1)
-
+    try:
         weather_stations = pd.read_csv(io.StringIO(response.text))
         all_weather_stations = pd.concat([all_weather_stations, weather_stations])
+    except pd.errors.EmptyDataError as e:
+        logger.error(e)
+        return pd.DataFrame()
 
     return reorder_columns_to_match_properties(df=all_weather_stations, properties=properties)

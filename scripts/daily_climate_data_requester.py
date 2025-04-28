@@ -6,8 +6,7 @@ Interacts with https://api.weather.gc.ca/ to gather data
 
 from datetime import datetime
 
-from danlab.api.daily_data import request_daily_data, write_all_daily_data_to_csv
-from danlab.api.climate_station_info import request_climate_station_info
+from danlab.api.daily_data import request_daily_data
 
 DAILY_DATA_PROPERTIES = [
         "ID",
@@ -49,17 +48,9 @@ DAILY_DATA_PROPERTIES = [
 DATES = [datetime(year=1820, month=1, day=1), datetime.now()]
 
 if __name__ == "__main__":
-    write_all_daily_data_to_csv(properties=DAILY_DATA_PROPERTIES,
-                                date_interval=DATES,
-                                out_dir = '/home/clintc/Documents/danlab/',
-                                PROVINCE_CODE='AB'
-                                #bbox=
-                            )
-
-#     daily_dat = request_daily_data(station_id=2263,
-#                                  properties=DAILY_DATA_PROPERTIES,
-#                                  date_interval=DATES,
-#                                  response_format='csv',
-#                                  sortby='+LOCAL_DATE')
-    # daily_dat.to_csv("Lethbridge_A_2263_daily.csv")
-
+    daily_dat = request_daily_data(station_id=50129,
+                                 properties=DAILY_DATA_PROPERTIES,
+                                 date_interval=DATES,
+                                 response_format='csv',
+                                 sortby='+LOCAL_DATE')
+    # daily_dat.to_csv("climate_daily_AB_Lethbridge_A_3033881_2012-2025.csv")

@@ -12,12 +12,12 @@ from urllib.error import URLError
 from dateutil.rrule import rrule, MONTHLY
 import pandas as pd
 
-def download_hourly_weather(stationID: int, date: datetime) -> pd.DataFrame:
+def download_hourly_weather(station_id: int, date: datetime) -> pd.DataFrame:
     """Download hourly weather data from weather.gc.ca
 
     Parameters
     ----------
-    stationID : int
+    station_id : int
         ID of station to be downloaded
     date : datetime
         The date with which to make the request for hourly data
@@ -34,8 +34,8 @@ def download_hourly_weather(stationID: int, date: datetime) -> pd.DataFrame:
     """
 
     base_url = "http://climate.weather.gc.ca/climate_data/bulk_data_e.html?"
-    query_url = f"format=csv&stationID={stationID}&Year={date:%Y}&Month={date:%m}&timeframe=1"
-    
+    query_url = f"format=csv&station_id={station_id}&Year={date:%Y}&Month={date:%m}&timeframe=1"
+
     # if the date given explicitly lists the time zone information, use it
     timezone_url = f"&time={date:%Z}" if date.tzinfo is not None else ""
     api_endpoint = base_url + query_url + timezone_url
