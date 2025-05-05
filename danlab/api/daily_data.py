@@ -97,14 +97,14 @@ def request_daily_data(station_id: int | Iterable[int],
         given, where each dictionary represents the json file returned in the
         response
     """
-    limit = 10000
+    default_limit = 10000
     request_url = "https://api.weather.gc.ca/collections/climate-daily/items"
 
     if unq := check_unqueryable_properties(collection='climate-daily', properties=properties):
         logger.warning('The following properties cannot be queried %s. Will ignore.', unq)
         properties = [prop for prop in properties if prop not in unq]
 
-    request_params = {'limit': limit,
+    request_params = {'limit': default_limit,
                       'offset': 0,
                       'properties': ','.join(properties),
                       'STN_ID': station_id,
@@ -117,7 +117,7 @@ def request_daily_data(station_id: int | Iterable[int],
     n_matched = find_number_matched(request_url, request_params)
 
     all_daily_data = []
-    n_iter = math.ceil(n_matched / limit)
+    n_iter = math.ceil(n_matched / request_params['limit'])
     with tqdm(total=n_iter, desc=f"Getting daily data for Station {station_id}") as pbar:
         successful_iter = 0
         while successful_iter < n_iter:
@@ -131,18 +131,17 @@ def request_daily_data(station_id: int | Iterable[int],
 
             all_daily_data.append(daily_data)
 
-            request_params['offset'] += limit
+            request_params['offset'] += request_params['limit']
             successful_iter += 1
 
-        if not all_daily_data:
-            return pd.DataFrame()
+    if not all_daily_data:
+        return pd.DataFrame()
 
-        all_daily_data = pd.concat(all_daily_data, ignore_index=True)
+    all_daily_data = pd.concat(all_daily_data, ignore_index=True)
 
-        # first add columns not present in specified properties
-        return reorder_columns_to_match_properties(df=all_daily_data, properties=properties)
+    # first add columns not present in specified properties
+    return reorder_columns_to_match_properties(df=all_daily_data, properties=properties)
 
-    return all_daily_data
 
 def write_full_set_to_csv(daily_data: pd.DataFrame, out_dir: Path):
     """Write data to CSV file, if data has fully been captured

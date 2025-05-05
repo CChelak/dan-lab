@@ -38,6 +38,7 @@ from danlab.api.daily_data import (
 
 from danlab.api.queryables import (
     request_queryable_names,
+    check_unqueryable_properties,
 )
 
 from danlab.data_clean import (

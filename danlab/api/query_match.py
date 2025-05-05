@@ -36,4 +36,15 @@ def find_number_matched(url: str, params: dict) -> int:
                      response.text)
         return 0
 
-    return response.json()['numberMatched']
+    try:
+        response_dict = response.json()
+
+        num_matched = 'numberMatched'
+        if num_matched not in response_dict:
+            logger.error("Entry '%s' is not found in response.", num_matched)
+            return 0
+
+        return response.json()['numberMatched']
+    except requests.JSONDecodeError as e:
+        logger.error("Failed to decode the JSON file returned by response: %s", e)
+        return 0
