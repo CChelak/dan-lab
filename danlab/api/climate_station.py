@@ -17,9 +17,9 @@ from danlab.data_clean import reorder_columns_to_match_properties
 
 logger = getLogger(__name__)
 
-def request_climate_station_info(properties: Iterable = None,
+def request_climate_stations(properties: Iterable = None,
                                  **extra_params) -> pd.DataFrame:
-    """Request climate station info from API
+    """Request climate station table from API
 
     Calls a GET reqest call to climate-stations/items and processes the response
 

@@ -5,7 +5,6 @@ import io
 from logging import getLogger
 import math
 from pathlib import Path
-from typing import List # for type hints
 from collections.abc import Iterable  # for type hints
 import time
 
@@ -60,7 +59,7 @@ def request_data_frame(url: str, params: dict) -> pd.DataFrame | None:
 def request_daily_data(station_id: int | Iterable[int],
                        properties: Iterable,
                        date_interval: datetime | Iterable[datetime] | str = None,
-                       **extra_params) -> pd.DataFrame | List[dict]:
+                       **extra_params) -> pd.DataFrame:
     """Request daily data from API
 
     Calls a GET reqest call to climate-daily/items and processes the response
@@ -89,13 +88,9 @@ def request_daily_data(station_id: int | Iterable[int],
 
     Returns
     -------
-    pd.DataFrame | dict
+    pd.DataFrame
         A data frame of the requested daily data, with properties requested as
         columns
-
-        If request was to be made in json format, a list of dictionaries will be
-        given, where each dictionary represents the json file returned in the
-        response
     """
     default_limit = 10000
     request_url = "https://api.weather.gc.ca/collections/climate-daily/items"

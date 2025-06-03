@@ -6,7 +6,7 @@ Many of the questions came through email exchange
 from datetime import datetime
 import pandas as pd
 
-from danlab import request_climate_station_info
+from danlab import request_climate_stations
 
 # Here are the properties I'm going to grab from the API
 # I comment out the ones I'm not interested, but you can grab those, too
@@ -45,7 +45,7 @@ WEATHER_STN_PROPERTIES = [
     # 'WMO_IDENTIFIER',
 ]
 
-stations_df =  request_climate_station_info(properties=WEATHER_STN_PROPERTIES,
+stations_df =  request_climate_stations(properties=WEATHER_STN_PROPERTIES,
                                             PROV_STATE_TERR_CODE='AB')
 
 # Q: How many stations are in Alberta?

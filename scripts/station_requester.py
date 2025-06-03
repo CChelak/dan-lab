@@ -7,7 +7,7 @@ Interacts with https://api.weather.gc.ca/ to gather data
 from argparse import ArgumentParser
 import os
 
-from danlab import request_climate_station_info
+from danlab import request_climate_stations
 from danlab.province import ProvinceCode
 from danlab.api.bbox import doctor_bbox_latlon_string
 
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     if args.bbox is not None:
         extra_params['bbox'] = args.bbox
 
-    st_df =  request_climate_station_info(properties=args.properties,
+    st_df =  request_climate_stations(properties=args.properties,
                                           **extra_params)
 
     if args.output is not None:

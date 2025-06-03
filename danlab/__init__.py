@@ -1,12 +1,11 @@
-"""File to set up ability to import functions and modules
+"""A library used to research-related queries of protected areas and weather stations
 
-    Shortcuts below simplify imports. Rather than typing the following:
-    
-        from danlab.scrape.download_weather_data import download_hourly_weather
+In here, there is code that:
 
-    You can now type:
-
-        from danlab import download_hourly_weather
+  - interacts with weather station API, such as pulling daily climate data
+  - scrapes data from canadian governement databases
+  - manages csv files from canada government and smartly joins them
+  - checks for proximity of stations to protected areas or other stations
 """
 
 from danlab.scrape.download_weather_data import (
@@ -23,8 +22,8 @@ from danlab.date_conversions import (
     parse_date_time,
 )
 
-from danlab.api.climate_station_info import (
-    request_climate_station_info,
+from danlab.api.climate_station import (
+    request_climate_stations,
 )
 
 from danlab.api.hourly_data import (
@@ -39,6 +38,11 @@ from danlab.api.daily_data import (
 from danlab.api.queryables import (
     request_queryable_names,
     check_unqueryable_properties,
+)
+
+from danlab.api.bbox import (
+    create_bbox_string,
+    doctor_bbox_latlon_string,
 )
 
 from danlab.data_clean import (
