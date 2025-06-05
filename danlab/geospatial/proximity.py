@@ -11,9 +11,10 @@ from collections.abc import Iterable
 from numbers import Real
 
 from geopandas import GeoSeries
-from shapely import Point, Polygon
+from shapely import Point, Polygon, MultiPolygon
+from shapely.geometry.base import BaseGeometry
 
-def select_within_centroid(reference_lonlat: Point | Polygon,
+def select_within_centroid(reference_lonlat: BaseGeometry,
                            points_in_lonlat: Iterable[Point],
                            distance: Real,
                            crs: str = "EPSG:3402") -> GeoSeries:
@@ -21,10 +22,10 @@ def select_within_centroid(reference_lonlat: Point | Polygon,
 
     Parameters
     ----------
-    reference_lonlat : Point | Polygon
+    reference_lonlat : BaseGeometry
         The reference shape/point in longitude/latitude in which each point in
-        will calculate distance from. If a polygon was given, reference point is
-         its centroid
+        will calculate distance from. If a Point was not given, reference point
+        is the object's centroid
     points_in_lonlat : Iterable[Point]
         The points to check if they are within given distance of reference,
         should be in longitude/latitude
@@ -42,8 +43,8 @@ def select_within_centroid(reference_lonlat: Point | Polygon,
     GeoSeries
         The values of `points_in_lonlat` that fell within the distance provided
     """
-    if not isinstance(reference_lonlat, (Point, Polygon)):
-        raise ValueError("The reference point to find centroid must be a point or polygon")
+    if not isinstance(reference_lonlat, BaseGeometry):
+        raise ValueError("The reference point to find centroid must be a shapely geometry")
     if not isinstance(distance, Real):
         raise ValueError("Distance given is not a real number")
     for ii, pt in enumerate(points_in_lonlat):
@@ -56,27 +57,26 @@ def select_within_centroid(reference_lonlat: Point | Polygon,
     pts_series_crs = pts_series_lonlat.to_crs(crs=crs)
 
     # Convert the reference point the proper CRS
-    ref_pt = reference_lonlat.centroid if isinstance(reference_lonlat, Polygon) else reference_lonlat
-    ref_pt = GeoSeries(ref_pt, crs=base_crs) # start in world CRS
+    ref_pt = GeoSeries(reference_lonlat.centroid, crs=base_crs) # start in world CRS
     ref_pt = ref_pt.to_crs(crs=crs).iloc[0] # convert to desired CRS
 
     return pts_series_lonlat[pts_series_crs.dwithin(other=ref_pt, distance=distance)]
 
 
-def select_within_distance_of_polygon(polygon: Polygon,
-                                      points: GeoSeries,
-                                      distance: Real,
-                                      crs: str = "EPSG:3402") -> GeoSeries:
-    """Select which points given are within a distance of a polygon
+def select_within_distance_of_region(region: Polygon | MultiPolygon,
+                                     points: GeoSeries,
+                                     distance: Real,
+                                     crs: str = "EPSG:3402") -> GeoSeries:
+    """Select which points given are within a distance of a region
 
     Parameters
     ----------
-    polygon : Polygon
-        A polygon, assumed to be in the same CRS as the points given
+    region : Polygon | MultiPolygon
+        A region, assumed to be in the same CRS as the points given
     points : GeoSeries
-        Points given to find which are within given distance of polygon
+        Points given to find which are within given distance of region
     distance : Real
-        The maximum distance with which the points can be from the polygon to be
+        The maximum distance with which the points can be from the region to be
         accepted. The unit of distance depends on crs given
     crs : _type_, optional
         A Coordinate Reference System accepted by geopanadas. This is the CRS
@@ -87,9 +87,18 @@ def select_within_distance_of_polygon(polygon: Polygon,
     Returns
     -------
     GeoSeries
-        All points that are within the distance from the polygon given
+        All points that are within the distance from the region given
     """
+    if not isinstance(region, (Polygon, MultiPolygon)):
+        raise ValueError("The region given must be a shapely Polygon or MultiPolygon")
+    if not isinstance(points, GeoSeries):
+        raise ValueError("The points given must be a GeoSeries object")
+    if not isinstance(distance, Real):
+        raise ValueError("Distance given is not a real number")
+
     points_crs = points.to_crs(crs=crs)
 
-    polygon_crs = GeoSeries(polygon, crs=points.crs).to_crs(crs=crs).iloc[0]
+    polygon_crs = GeoSeries(region, crs=points.crs).to_crs(crs=crs).iloc[0]
+
+    # return the points in the same CRS as the input, selecting the ones that fall in the distance
     return points[points_crs.dwithin(polygon_crs, distance=distance)]

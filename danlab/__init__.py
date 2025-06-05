@@ -48,3 +48,8 @@ from danlab.api.bbox import (
 from danlab.data_clean import (
     reorder_columns_to_match_properties,
 )
+
+from danlab.geospatial.proximity import (
+    select_within_centroid,
+    select_within_distance_of_region
+)

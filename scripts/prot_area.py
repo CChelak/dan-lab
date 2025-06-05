@@ -49,7 +49,7 @@ regions = {
             "Ribstone Creek Heritage Rangeland",
             ],
         'PP': [
-            'Dinosaur',
+            'Dinosaur Provincial Park',
             'Cypress Hills',
             'Cold Lake',
             'Dry Island Buffalo Jump',
@@ -68,7 +68,9 @@ regions = {
             ],
         }
 
-natural_areas = gpd.read_file("/home/clintc/projects/dan-lab/scripts/protected-area/prot_area_2024_jan.kml", layer='NA')
+PROT_AREA_KML_FILE = "/home/clintc/projects/dan-lab/scripts/protected-area/prot_area_2024_jan.kml"
+natural_areas = gpd.read_file(PROT_AREA_KML_FILE, layer='NA')
+provincial_parks = gpd.read_file(PROT_AREA_KML_FILE, layer='PP')
 
 properties = ['CLIMATE_IDENTIFIER', 'STN_ID', 'LATITUDE', 'LONGITUDE', 'geometry']
 all_stations = request_climate_stations(properties=properties)

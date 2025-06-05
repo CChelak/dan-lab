@@ -56,7 +56,7 @@ def request_climate_stations(properties: Iterable = None,
     n_matched = find_number_matched(request_url, request_params)
 
     if n_matched <= 0:
-        logger.error("No entries for query of parameters")
+        logger.error("No stations found when sending a request of the following parameters %s", request_params)
         return pd.DataFrame()
 
     n_iter = np.int64(np.ceil(n_matched / limit))
