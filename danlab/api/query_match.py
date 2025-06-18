@@ -23,7 +23,7 @@ def find_number_matched(url: str, params: dict) -> int:
     """
     alt_params = params.copy()
     alt_params['f'] = 'json'
-    alt_params['items'] = 1
+    alt_params['limit'] = 1
     alt_params['offset'] = 0
 
     response = requests.get(url,
@@ -44,7 +44,7 @@ def find_number_matched(url: str, params: dict) -> int:
             logger.error("Entry '%s' is not found in response.", num_matched)
             return 0
 
-        return response.json()['numberMatched']
+        return response_dict['numberMatched']
     except requests.JSONDecodeError as e:
         logger.error("Failed to decode the JSON file returned by response: %s", e)
         return 0

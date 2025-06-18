@@ -64,7 +64,10 @@ station_properties = ['CLIMATE_IDENTIFIER',
                       'ELEVATION',
                       'STATION_NAME',
                       'STATION_TYPE']
+
+# We request stations from the API with the bounding box we created
 milk_river_stations = request_climate_stations(properties=station_properties, bbox=station_bounds)
+milk_river_stations.to_crs(prot_area.crs)
 
 # To project lon/lat to meters, we pick a Coordinate Reference System in Alberta
 ALBERTA_10TM_CRS = "EPSG:3402"
@@ -72,5 +75,5 @@ ALBERTA_10TM_CRS = "EPSG:3402"
 # Select points within 100 meters of the region
 nearest_stations = select_within_distance_of_region(region=milk_river_geo,
                                                     points=milk_river_stations.geometry,
-                                                    distance=100,
+                                                    distance=200,
                                                     crs=ALBERTA_10TM_CRS)
