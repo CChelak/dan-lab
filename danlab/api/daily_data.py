@@ -1,13 +1,13 @@
 """Tools for acquiring daily climate data from API 
 """
 from datetime import datetime
-import io
 from logging import getLogger
 import math
 from pathlib import Path
 from collections.abc import Iterable  # for type hints
 import time
 
+import geopandas as gpd
 import pandas as pd
 import requests
 from tqdm import tqdm  # for adding a progr`ess bar
@@ -19,7 +19,7 @@ from danlab.data_clean import reorder_columns_to_match_properties
 
 logger = getLogger(__name__)
 
-def request_data_frame(url: str, params: dict) -> pd.DataFrame | None:
+def request_data_frame(url: str, params: dict) -> gpd.GeoDataFrame | None:
     """Perform a request to the API and handle errors
 
     Parameters
@@ -53,13 +53,13 @@ def request_data_frame(url: str, params: dict) -> pd.DataFrame | None:
                      )
         return None
 
-    return pd.read_csv(io.StringIO(response.text))
+    return gpd.read_file(response.text)
 
 
 def request_daily_data(station_id: int | Iterable[int],
                        properties: Iterable,
                        date_interval: datetime | Iterable[datetime] | str = None,
-                       **extra_params) -> pd.DataFrame:
+                       **extra_params) -> gpd.GeoDataFrame:
     """Request daily data from API
 
     Calls a GET reqest call to climate-daily/items and processes the response
@@ -73,7 +73,7 @@ def request_daily_data(station_id: int | Iterable[int],
         Allowed properties correspond to the columns found in the link:
         https://api.weather.gc.ca/collections/climate-daily/items?lang=en
     date_interval : datetime | Iterable[datetime] | str
-        If a single date given, return hourly weather data for that date
+        If a single date given, return daily weather data for that date
 
         If a list or other iterable (up to 2 elements) given, it will create
         a string representing an interval of time, in a form that API can
@@ -88,9 +88,9 @@ def request_daily_data(station_id: int | Iterable[int],
 
     Returns
     -------
-    pd.DataFrame
+    gpd.GeoDataFrame
         A data frame of the requested daily data, with properties requested as
-        columns
+        columns and geometry, if applicable
     """
     default_limit = 10000
     request_url = "https://api.weather.gc.ca/collections/climate-daily/items"
@@ -103,13 +103,16 @@ def request_daily_data(station_id: int | Iterable[int],
                       'offset': 0,
                       'properties': ','.join(properties),
                       'STN_ID': station_id,
-                      'f': 'csv',
                       **extra_params}
 
     if date_interval is not None:
         request_params['datetime'] = parse_date_time(date_interval)
 
     n_matched = find_number_matched(request_url, request_params)
+
+    if n_matched <= 0:
+        logger.error("No daily data found when sending a request of the following parameters %s", request_params)
+        return gpd.GeoDataFrame()
 
     all_daily_data = []
     n_iter = math.ceil(n_matched / request_params['limit'])
@@ -130,7 +133,7 @@ def request_daily_data(station_id: int | Iterable[int],
             successful_iter += 1
 
     if not all_daily_data:
-        return pd.DataFrame()
+        return gpd.GeoDataFrame()
 
     all_daily_data = pd.concat(all_daily_data, ignore_index=True)
 
@@ -175,7 +178,7 @@ def write_all_daily_data_to_csv(properties: Iterable,
     properties : Iterable
         Climate-daily properties to query the API
     date_interval : datetime | Iterable[datetime] | str, optional
-        If a single date given, return hourly weather data for that date
+        If a single date given, return daily weather data for that date
 
         If a list or other iterable (up to 2 elements) given, it will create
         a string representing an interval of time, in a form that API can

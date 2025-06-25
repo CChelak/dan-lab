@@ -26,7 +26,7 @@ def parse_date_time(date_interval: datetime | Iterable[datetime] | str) -> str:
         if isinstance(date_interval, datetime):
             dt_str = date_interval.isoformat()
         elif isinstance(date_interval, list):
-            dt_str = '/'.join([d.isoformat() for d in date_interval])
+            dt_str = '/'.join([d.isoformat() if isinstance(d, datetime) else d for d in date_interval])
         else:
             # we'll assume this is a string in the format accepted by properties
             dt_str = date_interval

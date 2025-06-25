@@ -42,7 +42,7 @@ class TestRequestClimateStations(TestCase):
         # For the number matched check
         responses.get(
             url = self._climate_station_url,
-            match = [responses.matchers.query_param_matcher({'f': 'json', 'items': 1, 'offset': 0},
+            match = [responses.matchers.query_param_matcher({'f': 'json', 'limit': 1, 'offset': 0},
                                                             strict_match=False)],
             json = {'numberMatched': number_matched},
             status = 200
@@ -89,7 +89,7 @@ class TestRequestClimateStations(TestCase):
                                  "properties":{"STN_ID":"3",
                                                "COUNTRY":"CAN",
                                                "FIRST_DATE":"1979-01-01 00:00:00"}}]},
-            match = [responses.matchers.query_param_matcher({'f':'csv', 'properties':','.join(valid_properties)},
+            match = [responses.matchers.query_param_matcher({'properties':','.join(valid_properties)},
                                                             strict_match=False)],
             status = 200
         )
@@ -123,7 +123,7 @@ class TestRequestClimateStations(TestCase):
                                  "geometry":{"type":"Point","coordinates":[-123.41666666666667,48.55]},
                                  "properties":{"STATION_NAME":"SAANICH OLDFIELD NORTH"}}],
                                  "numberReturned":1},
-            match = [responses.matchers.query_param_matcher({'f':'csv', 'properties':','.join(properties_in)},
+            match = [responses.matchers.query_param_matcher({'properties':','.join(properties_in)},
                                                             strict_match=False)],
             status = 200
                       )
@@ -136,7 +136,7 @@ class TestRequestClimateStations(TestCase):
                                  "geometry":{"type":"Point","coordinates":[-123.26694444444445,48.455]},
                                  "properties":{"STATION_NAME":"VICTORIA PHYLLIS STREET"}}],
                                  "numberReturned":1},
-            match = [responses.matchers.query_param_matcher({'f':'csv', 'properties':','.join(properties_in)},
+            match = [responses.matchers.query_param_matcher({'properties':','.join(properties_in)},
                                                             strict_match=False)],
             status = 200
             )
@@ -152,7 +152,7 @@ class TestRequestClimateStations(TestCase):
     def test_default_properties(self):
         """Test that the default properties argument will not result in error
         """
-        # make the
+        # make the properties rather limited
         self._make_initial_check_responses(properties=['STN_ID'], number_matched=1)
 
         expected_out = gpd.GeoDataFrame({"id":["1041490"], "STN_ID":["302"], "geometry":[Point(123.15,49.8)]})
