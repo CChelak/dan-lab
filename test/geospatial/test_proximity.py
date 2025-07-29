@@ -1,3 +1,4 @@
+# pylint: disable=R0801
 #!/usr/bin/env python3
 
 """Test functions of the proximity.py file
@@ -13,7 +14,7 @@ import numpy as np
 import pandas as pd
 from shapely import Point, Polygon, MultiPolygon
 
-from danlab.geospatial.proximity import select_within_centroid, select_within_distance_of_region
+from danlab.geospatial.proximity import select_within_distance_of_centroid, select_within_distance_of_region
 
 class TestProximity(TestCase):
     """Base Test class for Proximity file
@@ -98,20 +99,25 @@ class TestProximity(TestCase):
         return pts_in_crs.to_crs(crs=self._WORLD_GEODESIC)
 
 
-class TestSelectWithinCentroid(TestProximity):
-    """Tests that check select_within_centroid
+class TestSelectWithinDistanceOfCentroid(TestProximity):
+    """Tests that check select_within_distance_of_centroid
     """
     def test_bad_input_types(self):
         """Test that function raises ValueError when input can't work
         """
         with self.assertRaises(ValueError):
-            select_within_centroid(reference_lonlat=24, points_in_lonlat=[Point(42, 22)], distance=100, crs="WGS84")
+            select_within_distance_of_centroid(reference_lonlat=24,
+                                               points_in_lonlat=[Point(42, 22)],
+                                               distance=100,
+                                               crs="WGS84")
 
         with self.assertRaises(ValueError):
-            select_within_centroid(reference_lonlat=Point(100,100), points_in_lonlat=[1,2,3], distance=90, crs="WGS84")
+            select_within_distance_of_centroid(reference_lonlat=Point(100,100),
+                                               points_in_lonlat=[1,2,3],
+                                               distance=90, crs="WGS84")
 
         with self.assertRaises(ValueError):
-            select_within_centroid(reference_lonlat=Point(50,20),
+            select_within_distance_of_centroid(reference_lonlat=Point(50,20),
                                    points_in_lonlat=[Point(11,22), Point(30,100)],
                                    distance="rawr",
                                    crs=self._WORLD_GEODESIC)
@@ -119,7 +125,7 @@ class TestSelectWithinCentroid(TestProximity):
     def test_all_outside(self):
         """Test what happens when there are no points that fall inside the distance
         """
-        data_out = select_within_centroid(reference_lonlat=Point(-113.2, 53.8),
+        data_out = select_within_distance_of_centroid(reference_lonlat=Point(-113.2, 53.8),
                                           points_in_lonlat=[Point(-113.1, 53.8), Point(-113.5, 53.9)],
                                           distance=10,
                                           crs=self._ALBERTA_10TM)
@@ -145,7 +151,7 @@ class TestSelectWithinCentroid(TestProximity):
         # We get a nice warning about distance being in degrees here; disable for test
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', category=UserWarning)
-            data_out = select_within_centroid(reference_lonlat=reference_point_lonlat,
+            data_out = select_within_distance_of_centroid(reference_lonlat=reference_point_lonlat,
                                             points_in_lonlat=joined_points,
                                             distance=distance,
                                             crs=self._WORLD_GEODESIC)
@@ -169,7 +175,7 @@ class TestSelectWithinCentroid(TestProximity):
         joined_points = pd.concat([points_within, points_outside])
         joined_points = joined_points.sample(frac=1) # shuffling points, so within and outside are mixed
 
-        data_out = select_within_centroid(reference_lonlat=reference_point_lonlat,
+        data_out = select_within_distance_of_centroid(reference_lonlat=reference_point_lonlat,
                                           points_in_lonlat=joined_points,
                                           distance=distance,
                                           crs=self._ALBERTA_10TM)
@@ -220,22 +226,29 @@ class TestSelectWithinDistanceOfRegion(TestProximity):
         valid_distance = 10.2
 
         # A bad polygon
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             select_within_distance_of_region(region=30,
                                              points=valid_points,
                                              distance=valid_distance)
 
         # A bad list of points
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             select_within_distance_of_region(region=valid_polygon,
                                              points="hey, I'm a point",
                                              distance=valid_distance)
 
         # A bad distance
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             select_within_distance_of_region(region=valid_polygon,
                                              points=valid_points,
                                              distance=np.array([3,4,3]))
+        # A bad crs
+        with self.assertRaises(TypeError):
+            select_within_distance_of_region(region=valid_polygon,
+                                             points=valid_points,
+                                             distance=valid_distance,
+                                             crs=np.array([1]))
+
 
     def test_within_polygon(self):
         """See what happens when points are within the polygon

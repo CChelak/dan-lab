@@ -6,6 +6,32 @@
 from collections.abc import Iterable
 from datetime import datetime
 
+def is_convertible_to_date_str(date_interval: datetime | str | Iterable[datetime | str]) -> bool:
+    """Check if date interval can be converted to a datetime string
+
+    Parameters
+    ----------
+    date_interval : datetime | Iterable[datetime  |  str]
+        The date interval to check
+
+    Returns
+    -------
+    bool
+        True if date interval is a good type, false otherwise
+    """
+    if isinstance(date_interval, datetime):
+        return True
+    if isinstance(date_interval, str):
+        return True
+
+    if isinstance(date_interval, Iterable):
+        for dt in date_interval:
+            if not isinstance(dt, (datetime, str)):
+                return False
+        return True
+
+    return False
+
 def parse_date_time(date_interval: datetime | Iterable[datetime] | str) -> str:
     """Parse date and time given into a form the API can understand
 

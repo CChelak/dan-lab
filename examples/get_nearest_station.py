@@ -10,6 +10,8 @@ In this example, we will do the following:
   5. Download the data of each of the stations
   6. Pick the stations that are within a distance of the protected area
 """
+
+# %%
 import zipfile
 
 import io
@@ -26,6 +28,7 @@ from danlab import (create_bbox_string,
 # I use pylint to check the file. I'm ignoring warnings for example scripts here
 # pylint: disable=C0103
 
+# %%
 # 1. We'll download alberta protected area data from their website.
 response = requests.get("https://www.albertaparks.ca/media/6492787/protected-area-kmz-outline.zip", timeout=100)
 with zipfile.ZipFile(io.BytesIO(response.content)) as zipped:
@@ -41,12 +44,14 @@ with zipfile.ZipFile(io.BytesIO(response.content)) as zipped:
 # 2. Let's print all the natural areas and see what we are working with
 print(prot_area['Name'].to_string())
 
+# %%
 # For this, we'll look at Milk River's geometry
 milk_river_geo = prot_area[prot_area['Name'] == 'Milk River Natural Area'].geometry.iloc[0]
 
 # 3. We can get the bounds of this region to build our bounding box for the stations
 milk_river_bounds = milk_river_geo.bounds
 
+# %%
 # 4. Expand the bounds by a few tenths of a degree and create a bbox to pass into the station-finding API
 station_bounds = [Point(milk_river_bounds[0] - 0.3, milk_river_bounds[1] - 0.3),
                   Point(milk_river_bounds[2] + 0.3, milk_river_bounds[3] + 0.3)]
@@ -56,6 +61,7 @@ station_bounds = create_bbox_string(station_bounds)
 # We select which properties we are interested. We can first see what's queryable
 print(request_queryable_names('climate-stations'))
 
+# %%
 # Now, we select the properties we want
 station_properties = ['CLIMATE_IDENTIFIER',
                       'STN_ID',

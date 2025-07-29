@@ -1,26 +1,26 @@
 """Tools for acquiring hourly climate data from API 
 """
 from datetime import datetime
-import io
 from logging import getLogger
 from typing import List # for type hints
 from collections.abc import Iterable  # for type hints
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import requests
 from tqdm import tqdm  # for adding a progr`ess bar
 
-from danlab.date_conversions import parse_date_time
+from danlab.date_conversions import parse_date_time, is_convertible_to_date_str
 from danlab.api.query_match import find_number_matched
+from danlab.api.queryables import check_unqueryable_properties
 from danlab.data_clean import reorder_columns_to_match_properties
 
 logger = getLogger(__name__)
 
-def request_hourly_data(station_id: int | Iterable[int],
-                        properties: Iterable,
-                        date_interval: datetime | Iterable[datetime] | str = None,
-                        response_format: str = 'csv',
+def request_hourly_data(station_id: int,
+                        properties: Iterable[str],
+                        date_interval: datetime | str | Iterable[datetime | str] = None,
                         **extra_params) -> pd.DataFrame | List[dict]:
     """Request hourly data from API
 
@@ -28,13 +28,13 @@ def request_hourly_data(station_id: int | Iterable[int],
 
     Parameters
     ----------
-    station_id : int | Iterable[int]
-        The station ID(s) to query
-    properties : Iterable
+    station_id : int
+        The station ID to query
+    properties : Iterable[str]
         A list of climate-station properties to gather from the API.
         Allowed properties correspond to the columns found in the link:
-        https://api.weather.gc.ca/collections/climate-hourly/items?lang=en
-    date_interval : datetime | Iterable[datetime] | str
+        https://api.weather.gc.ca/collections/climate-hourly/queryables?f=html
+    date_interval : datetime | str | Iterable[datetime | str]
         If a single date given, return hourly weather data for that date
 
         If a list or other iterable (up to 2 elements) given, it will create
@@ -44,9 +44,6 @@ def request_hourly_data(station_id: int | Iterable[int],
         means "from date given to now."
 
         If None given, date is not considered in the request
-    response_format : str
-        Which format you want the response to return as: supports 'json' or
-        'csv'
     extra_params :
         Extra parameters that can be accepted by API, defined in the "items"
         section in: https://api.weather.gc.ca/openapi?f=html#/climate-hourly
@@ -61,14 +58,24 @@ def request_hourly_data(station_id: int | Iterable[int],
         given, where each dictionary represents the json file returned in the
         response
     """
-    limit = 10000
+    if not isinstance(station_id, int):
+        raise TypeError(f"station_id must be an int; {type(station_id)=}")
+    if not isinstance(properties, Iterable):
+        raise TypeError(f"Properties given must be an Iterable object of strings; {type(properties)=}")
+    if not is_convertible_to_date_str(date_interval) and date_interval is not None:
+        raise TypeError(f"date_interval must be datetime, str or iterable of datetime and str; {type(date_interval)=}")
+
+    default_limit = 10000
     request_url = "https://api.weather.gc.ca/collections/climate-hourly/items"
 
-    request_params = {'limit': limit,
+    if unq := check_unqueryable_properties(collection='climate-hourly', properties=properties):
+        logger.warning('The following properties cannot be queried %s. Will ignore.', unq)
+        properties = [prop for prop in properties if prop not in unq]
+
+    request_params = {'limit': default_limit,
                       'offset': 0,
                       'properties': ','.join(properties),
                       'STN_ID': station_id,
-                      'f': response_format,
                       **extra_params}
 
     if date_interval is not None:
@@ -76,8 +83,12 @@ def request_hourly_data(station_id: int | Iterable[int],
 
     n_matched = find_number_matched(request_url, request_params)
 
+    if n_matched <= 0:
+        logger.error("No daily data found when sending a request of the following parameters %s", request_params)
+        return gpd.GeoDataFrame()
+
     all_hourly_data = []
-    n_iter = np.int64(np.ceil(n_matched / limit))
+    n_iter = np.int64(np.ceil(n_matched / request_params['limit']))
     with tqdm(total=n_iter, desc=f"Getting hourly data for Station {station_id}") as pbar:
         for _ in range(n_iter):
             response = requests.get(request_url,
@@ -94,16 +105,12 @@ def request_hourly_data(station_id: int | Iterable[int],
 
             pbar.update(1)
 
-            if response_format == 'csv':
-                hourly_data = pd.read_csv(io.StringIO(response.text))
-            else:
-                hourly_data = response.json()
+            hourly_data = gpd.read_file(response.text)
 
             all_hourly_data.append(hourly_data)
 
-            request_params['offset'] += limit
+            request_params['offset'] += request_params['limit']
 
-    if response_format == 'csv' and len(all_hourly_data) > 0:
-        all_hourly_data = pd.concat(all_hourly_data, ignore_index=True)
-        return reorder_columns_to_match_properties(df=all_hourly_data, properties=properties)
-    return all_hourly_data
+    all_hourly_data = pd.concat(all_hourly_data, ignore_index=True)
+
+    return reorder_columns_to_match_properties(df=all_hourly_data, properties=properties)

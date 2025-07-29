@@ -4,18 +4,19 @@ from datetime import datetime
 from logging import getLogger
 import math
 from pathlib import Path
-from collections.abc import Iterable  # for type hints
+from collections.abc import Iterable # for type hints
 import time
 
 import geopandas as gpd
 import pandas as pd
 import requests
-from tqdm import tqdm  # for adding a progr`ess bar
+from tqdm import tqdm  # for adding a progress bar
 
-from danlab.date_conversions import parse_date_time
 from danlab.api.queryables import check_unqueryable_properties
 from danlab.api.query_match import find_number_matched
 from danlab.data_clean import reorder_columns_to_match_properties
+from danlab.date_conversions import parse_date_time
+from danlab.file_manage.write_daily_to_csv import write_daily_data_to_csv
 
 logger = getLogger(__name__)
 
@@ -57,12 +58,12 @@ def request_data_frame(url: str, params: dict) -> gpd.GeoDataFrame | None:
 
 
 def request_daily_data(station_id: int | Iterable[int],
-                       properties: Iterable,
+                       properties: Iterable = None,
                        date_interval: datetime | Iterable[datetime] | str = None,
                        **extra_params) -> gpd.GeoDataFrame:
     """Request daily data from API
 
-    Calls a GET reqest call to climate-daily/items and processes the response
+    Calls a GET request call to climate-daily/items and processes the response
 
     Parameters
     ----------
@@ -71,7 +72,9 @@ def request_daily_data(station_id: int | Iterable[int],
     properties : Iterable
         A list of climate-station properties to gather from the API.
         Allowed properties correspond to the columns found in the link:
-        https://api.weather.gc.ca/collections/climate-daily/items?lang=en
+        https://api.weather.gc.ca/collections/climate-daily/queryables?f=html;
+        if value is None, all properties will be returned. Default is to give
+        all properties
     date_interval : datetime | Iterable[datetime] | str
         If a single date given, return daily weather data for that date
 
@@ -92,19 +95,24 @@ def request_daily_data(station_id: int | Iterable[int],
         A data frame of the requested daily data, with properties requested as
         columns and geometry, if applicable
     """
+    default_sortby = "+LOCAL_DATE"
     default_limit = 10000
     request_url = "https://api.weather.gc.ca/collections/climate-daily/items"
 
-    if unq := check_unqueryable_properties(collection='climate-daily', properties=properties):
-        logger.warning('The following properties cannot be queried %s. Will ignore.', unq)
-        properties = [prop for prop in properties if prop not in unq]
+    # If properties were given, ensure that they are valid
+    if properties is not None:
+        if (unq := check_unqueryable_properties(collection='climate-daily', properties=properties)):
+            logger.warning('The following properties cannot be queried %s. Will ignore.', unq)
+            properties = [prop for prop in properties if prop not in unq]
 
     request_params = {'limit': default_limit,
                       'offset': 0,
-                      'properties': ','.join(properties),
                       'STN_ID': station_id,
+                      'sortby': default_sortby,
                       **extra_params}
 
+    if properties is not None:
+        request_params['properties'] = ','.join(properties)
     if date_interval is not None:
         request_params['datetime'] = parse_date_time(date_interval)
 
@@ -157,21 +165,20 @@ def write_full_set_to_csv(daily_data: pd.DataFrame, out_dir: Path):
     out_dir : Path
         The directory with which to write to file
     """
-    # Wrtie entries for a given ID to file if we received all its data, then drop from DataFrmae
+    # Write entries for a given ID to file if we received all its data, then drop from DataFrame
     curr_ids = daily_data['CLIMATE_IDENTIFIER'].unique()
     for next_id in curr_ids[:-1]: # loop through all but the last ID
         next_id_data = daily_data[daily_data['CLIMATE_IDENTIFIER'] == next_id]
 
-        file_name = Path(out_dir, f"{next_id_data['STATION_NAME'].iloc[0].replace(' ', '_')}_{next_id}.csv" )
-        next_id_data.to_csv(file_name, index=False)
-
+        station_name = next_id_data['STATION_NAME'].iloc[0].replace(' ', '_')
+        write_daily_data_to_csv(data_in=next_id_data, station_name=station_name, output_directory=out_dir)
         daily_data = daily_data.drop(next_id_data.index)
 
-def write_all_daily_data_to_csv(properties: Iterable,
+def request_and_write_csv_for_all_daily_data(properties: Iterable,
                                 date_interval: datetime | Iterable[datetime] | str = None,
                                 out_dir: Path = Path('.'),
                                 **extra_params):
-    """Write all daily data to CSVs
+    """Request all daily data then write to CSVs
 
     Parameters
     ----------

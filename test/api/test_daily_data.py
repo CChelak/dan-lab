@@ -138,7 +138,7 @@ class TestRequestDailyData(TestCase):
         data_out = request_daily_data(station_id=123,
                                       date_interval=datetime(year=1992, month=10, day=2),
                                       properties=test_properties)
-        pd.testing.assert_frame_equal(data_out, pd.DataFrame())
+        pd.testing.assert_frame_equal(data_out, gpd.GeoDataFrame())
 
 
     @responses.activate
